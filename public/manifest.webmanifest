@@ -1,0 +1,10 @@
+{
+  "name": "PIXEL WARS: Algorithm Battlegrounds",
+  "short_name": "Pixel Wars",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#05060b",
+  "theme_color": "#05060b",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

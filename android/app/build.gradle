@@ -1,0 +1,69 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Release signing: CI/Play builds pass their own secret keystore through the
+// PW_KEYSTORE* environment variables. Without them the public sideload key
+// in this folder is used so every build can update the previous install.
+def ksPath = System.getenv('PW_KEYSTORE') ?: 'pixelwars-sideload.jks'
+
+android {
+    namespace 'com.dreylus.pixelwars'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.dreylus.pixelwars'
+        minSdk 26
+        targetSdk 35
+        versionCode Integer.parseInt((project.findProperty('versionCode') ?: '1').toString())
+        versionName((project.findProperty('versionName') ?: '1.0.0').toString())
+    }
+
+    signingConfigs {
+        release {
+            storeFile file(ksPath)
+            storePassword System.getenv('PW_KEYSTORE_PASSWORD') ?: 'pixelwars'
+            keyAlias System.getenv('PW_KEY_ALIAS') ?: 'pixelwars'
+            keyPassword System.getenv('PW_KEY_PASSWORD') ?: 'pixelwars'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/*.version', 'META-INF/*.kotlin_module']
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'androidx.core:core:1.13.1'
+}
+
+// The game itself is the Vite bundle in src/main/assets/www (npm run build:android).
+tasks.register('checkWebAssets') {
+    doLast {
+        if (!file('src/main/assets/www/index.html').exists()) {
+            throw new GradleException('Web assets missing. Run `npm run build:android` in the repository root first.')
+        }
+    }
+}
+tasks.matching { it.name == 'preBuild' }.configureEach { dependsOn 'checkWebAssets' }
