@@ -163,7 +163,7 @@ final class NativeBridge {
 
     @JavascriptInterface
     public void setImmersive(boolean on) {
-        activity.runOnUiThread(() -> activity.setImmersive(on));
+        activity.runOnUiThread(() -> activity.setGameFullscreen(on));
     }
 
     @JavascriptInterface

@@ -204,7 +204,7 @@ public class MainActivity extends Activity {
         else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
-    void setImmersive(boolean on) {
+    void setGameFullscreen(boolean on) {
         immersive = on;
         WindowInsetsControllerCompat c = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
         if (on) {
@@ -243,7 +243,7 @@ public class MainActivity extends Activity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && immersive) setImmersive(true);
+        if (hasFocus && immersive) setGameFullscreen(true);
     }
 
     @Override
