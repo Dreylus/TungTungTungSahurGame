@@ -1,0 +1,92 @@
+name: Build Android APK
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Engine smoke test (headless balance run)
+        run: npm run balance -- 4 96 4 race,war,domination,survival
+
+      - name: Build game bundle into Android assets
+        run: npm run build:android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release APK
+        working-directory: android
+        env:
+          PW_KEYSTORE: ${{ secrets.PW_KEYSTORE_PATH }}
+          PW_KEYSTORE_PASSWORD: ${{ secrets.PW_KEYSTORE_PASSWORD }}
+          PW_KEY_ALIAS: ${{ secrets.PW_KEY_ALIAS }}
+          PW_KEY_PASSWORD: ${{ secrets.PW_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleRelease \
+            -PversionCode=${{ github.run_number }} \
+            -PversionName=1.0.${{ github.run_number }}
+
+      - name: Collect APK
+        id: apk
+        run: |
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          SAFE=$(echo "$BRANCH" | tr '/ ' '--' | tr -cd 'A-Za-z0-9._-')
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release.apk "out/PixelWars-1.0.${{ github.run_number }}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "out/PixelWars.apk"
+          echo "safe=$SAFE" >> "$GITHUB_OUTPUT"
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PixelWars-apk-${{ steps.apk.outputs.safe }}
+          path: out/PixelWars-1.0.${{ github.run_number }}.apk
+          if-no-files-found: error
+
+      # A rolling release per branch, so the APK can be downloaded straight to
+      # a phone from the repository's Releases page.
+      - name: Publish rolling release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SAFE="${{ steps.apk.outputs.safe }}"
+          DEFAULT="${{ github.event.repository.default_branch }}"
+          if [ "$GITHUB_REF_NAME" = "$DEFAULT" ]; then TAG="latest"; PRE=""; else TAG="preview-$SAFE"; PRE="--prerelease"; fi
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" out/PixelWars.apk "out/PixelWars-1.0.${{ github.run_number }}.apk" \
+            --target "$GITHUB_SHA" $PRE \
+            --title "Pixel Wars 1.0.${{ github.run_number }} ($GITHUB_REF_NAME)" \
+            --notes "Built from ${GITHUB_SHA::7}. On your Pixel: download PixelWars.apk, open it, and allow installs from your browser if asked."
