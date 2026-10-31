@@ -92,7 +92,7 @@ export function menuScreen(): Screen {
     el,
     kind: 'menu',
     onShow: () => {
-      requestAnimationFrame(() => battle.restart());
+      // The battle sizes itself to the screen on its first frame.
       stop = animate(battle);
       audio.setAmbientLevel(0.45);
       if (settings.firstRun) setTimeout(welcome, 600);
